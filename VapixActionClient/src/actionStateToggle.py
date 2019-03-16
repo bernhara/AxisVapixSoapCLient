@@ -115,12 +115,22 @@ FilterType_type = client.get_type('wsnt:FilterType')
 
 rules = service.GetActionRules()
 
-ze_rule = rules[4]
+ze_rule = rules[3]
 #ze_rule = next (r for r in rules if r['Name'] == 'SendAutoTrack')
 
 conditions = ze_rule['Conditions']
-filterTypes=conditions['Condition']
-filterType_0 = filterTypes[0]
+Condition_seq=conditions['Condition']
+Condition_0=Condition_seq[0]
+filterType_0_0_seq=Condition_0['_value_1']
+any_0=filterType_0_0_seq[0]
+any_1=filterType_0_0_seq[1]
+
+any_list_NEW=[any_0,any_1]
+condition_0_NEW=FilterType_type(any_list_NEW)
+
+condition_list_NEW = [condition_0_NEW]
+Conditions_NEW = Conditions_type(condition_list_NEW)
+
 
 newFilterType_1 = xsd.AnyObject(xsd.String(), '1234')
 newFilterTypes = [ [ newFilterType_1 ] ]
