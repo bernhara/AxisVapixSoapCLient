@@ -100,7 +100,6 @@ NewActionRule_type = client.get_type('ns0:NewActionRule')
 Conditions_type = client.get_type('aa:Conditions')
 TopicExpressionType_type = client.get_type('wsnt:TopicExpressionType')
 FilterType_type = client.get_type('wsnt:FilterType')
-XsSequence_type = client.get_type('xs:sequence')
 # MessageContent_type = client.get_type('wsnt:MessageContent')
 
 
@@ -135,8 +134,11 @@ filterType_0_0_seq=Condition_0['_value_1']
 any_0=xsd.AnyObject(FilterType_type,  filterType_0_0_seq[0])
 any_1=xsd.AnyObject(FilterType_type,  filterType_0_0_seq[1])
 
-any_list_NEW=XsdSequence_type([any_0,any_1])
+any_list_NEW=[any_0,any_1]
 Condition_0_NEW=FilterType_type(any_list_NEW)
+
+zz = xsd.Sequence(any_list_NEW)
+Condition_0_NEW=FilterType_type(zz)
 
 #!!
 Condition_0_NEW=FilterType_type(any_0)
@@ -144,6 +146,8 @@ Condition_0_NEW=FilterType_type(any_0)
 Condition_seq_NEW = [Condition_0_NEW]
 Conditions_NEW = Conditions_type(Condition_seq_NEW)
 
+zz = xsd.Sequence(Condition_seq_NEW)
+Conditions_NEW = Conditions_type(zz)
 
 source_rule_to_clone = ze_rule
 
