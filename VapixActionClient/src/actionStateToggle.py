@@ -95,10 +95,12 @@ service = client.create_service(
     'http://axis-mk2.home/vapix/services')
 
 
+
 NewActionRule_type = client.get_type('ns0:NewActionRule')
 Conditions_type = client.get_type('aa:Conditions')
 TopicExpressionType_type = client.get_type('wsnt:TopicExpressionType')
 FilterType_type = client.get_type('wsnt:FilterType')
+XsSequence_type = client.get_type('xs:sequence')
 # MessageContent_type = client.get_type('wsnt:MessageContent')
 
 
@@ -115,26 +117,52 @@ FilterType_type = client.get_type('wsnt:FilterType')
 
 rules = service.GetActionRules()
 
-ze_rule = rules[3]
+for r in rules:
+    print (r['Name'])
+
+
+ze_rule_list = (r for r in rules if r['Name'] == 'SendAutoTrack_tmpl')
+
+ze_rule = next(ze_rule_list)
+assert ze_rule is not None, "Rule SendAutoTrack_tmpl not found!"
+
 #ze_rule = next (r for r in rules if r['Name'] == 'SendAutoTrack')
 
-conditions = ze_rule['Conditions']
-Condition_seq=conditions['Condition']
+Conditions = ze_rule['Conditions']
+Condition_seq=Conditions['Condition']
 Condition_0=Condition_seq[0]
 filterType_0_0_seq=Condition_0['_value_1']
-any_0=filterType_0_0_seq[0]
-any_1=filterType_0_0_seq[1]
+any_0=xsd.AnyObject(FilterType_type,  filterType_0_0_seq[0])
+any_1=xsd.AnyObject(FilterType_type,  filterType_0_0_seq[1])
 
-any_list_NEW=[any_0,any_1]
-condition_0_NEW=FilterType_type(any_list_NEW)
+any_list_NEW=XsdSequence_type([any_0,any_1])
+Condition_0_NEW=FilterType_type(any_list_NEW)
 
-condition_list_NEW = [condition_0_NEW]
-Conditions_NEW = Conditions_type(condition_list_NEW)
+#!!
+Condition_0_NEW=FilterType_type(any_0)
+
+Condition_seq_NEW = [Condition_0_NEW]
+Conditions_NEW = Conditions_type(Condition_seq_NEW)
+
+
+source_rule_to_clone = ze_rule
+
+newActioRule = NewActionRule_type (Name=source_rule_to_clone['Name']+'2',
+                                                Enabled=source_rule_to_clone['Enabled'],
+                                                PrimaryAction=source_rule_to_clone['PrimaryAction'],
+                                                StartEvent=source_rule_to_clone['StartEvent'],
+                                                Conditions=Conditions_NEW
+#                                               ActivationTimeout=source_rule_to_clone['ActivationTimeout'],
+#                                               FailoverAction=source_rule_to_clone['FailoverAction']
+                                                )
+
+add_result = service.AddActionRule (NewActionRule=newActioRule)
 
 
 newFilterType_1 = xsd.AnyObject(xsd.String(), '1234')
 newFilterTypes = [ [ newFilterType_1 ] ]
-newConditions = Conditions_type (filterTypes)
+
+
 
 class MyRendered (object):
     localname = 'my_local_name'
