@@ -63,8 +63,8 @@ auth = requests.auth.HTTPDigestAuth(user, password)
 transport.session.auth = auth
 
 # configure cache
-#!!cache = SqliteCache(timeout=3600)
-#!!transport.cache = cache
+cache = SqliteCache(timeout=3600)
+transport.cache = cache
 
 url= "http://axis-mk2.home/wsdl/vapix/ActionService.wsdl"
 #url = "http://www.axis.com/vapix/ws/EntryService.wsdl"
@@ -101,36 +101,6 @@ client.set_ns_prefix('tnsaxis', "http://www.axis.com/2009/event/topics")
 
 # http://axis-mk2.home/wsdl/vapix/ActionService.wsdl?timestamp=1550949556124
 
-
-body = """
-        <?xml version="1.0" ?>
-<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-    xmlns:aa="http://www.axis.com/vapix/ws/action1"
-    xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2"
-    xmlns:tns1="http://www.onvif.org/ver10/topics"
-    xmlns:tnsaxis="http://www.axis.com/2009/event/topics"
-    xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
-<soap:Body>
-   <aa:AddActionRule xmlns="http://www.axis.com/vapix/ws/action1">
-      <NewActionRule>
-         <Name>TTTzz</Name>
-         <Enabled>false</Enabled>
-         <StartEvent>
-             <wsnt:TopicExpression Dialect="http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet">tnsaxis:Storage/Disruption</wsnt:TopicExpression>
-             <wsnt:MessageContent Dialect="http://www.onvif.org/ver10/tev/messageContentFilter/ItemFilter">boolean(//SimpleItem[@Name="disruption" and @Value="1"]) and boolean(//SimpleItem[@Name="disk_id" and @Value="SD_DISK"])</wsnt:MessageContent>
-          </StartEvent>
-         <PrimaryAction>36</PrimaryAction>
-      </NewActionRule>
-      </aa:AddActionRule>
-   </soap:Body>
-</soap:Envelope>
-    """.strip()
-
-response = stub(status_code=200, headers={}, content=content)
-
-operation = service._binding._operations["AddActionRule"]
-result = service._binding.process_reply(client, operation, response)
 
 
 
@@ -173,11 +143,20 @@ filterType_0_0_seq=Condition_0['_value_1']
 any_0=xsd.AnyObject(FilterType_type,  filterType_0_0_seq[0])
 any_1=xsd.AnyObject(FilterType_type,  filterType_0_0_seq[1])
 
-any_list_NEW=[any_0,any_1]
-Condition_0_NEW=FilterType_type(any_list_NEW)
+Condition_0_NEW=FilterType_type([any_0, any_1])
 
 Condition_seq_NEW = [Condition_0_NEW]
-Conditions_NEW = Conditions_type(Condition_seq_NEW)
+
+Conditions_NEW = Conditions_type(Condition_0_NEW)
+# Conditions_NEW["Condition"] = {"_raw_elements": '''<wsnt:TopicExpression Dialect="http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet">
+#           tns1:RuleEngine/tnsaxis:DigitalAutotracking/tracking//.
+#           </wsnt:TopicExpression>
+#           <wsnt:MessageContent Dialect="http://www.onvif.org/ver10/tev/messageContentFilter/ItemFilter">
+#               boolean(//SimpleItem[@Name="active" and @Value="1"])
+#           </wsnt:MessageContent>'''}
+
+# Conditions_NEW = Conditions_type([Condition_0])
+
 
 source_rule_to_clone = ze_rule
 
@@ -189,8 +168,6 @@ newActioRule = NewActionRule_type (Name=source_rule_to_clone['Name']+'2',
 #                                               ActivationTimeout=source_rule_to_clone['ActivationTimeout'],
 #                                               FailoverAction=source_rule_to_clone['FailoverAction']
                                                 )
-
-node = etree.Element("document")
 
 add_result = service.AddActionRule (NewActionRule=newActioRule)
 
