@@ -13,8 +13,11 @@ from zeep import Settings
 from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from zeep import xsd
+from lxml import etree
+from pretend import stub
 
-from requests.auth import HTTPDigestAuth
+
+import requests
 
 import logging.config
 
@@ -49,16 +52,19 @@ transport.session.proxies = {
     'http': 'localhost:8888',
     'https': 'localhost:8888',
 }
+os.environ["http_proxy"] = 'http://localhost:8888'
+os.environ["https_proxy"] = 'http://localhost:8888'
+
 
 # configure authentication
 user = os.environ["axis_soap_user"]
 password = os.environ["axis_soap_password"]
-auth = HTTPDigestAuth(user, password)
+auth = requests.auth.HTTPDigestAuth(user, password)
 transport.session.auth = auth
 
 # configure cache
-cache = SqliteCache(timeout=3600)
-transport.cache = cache
+#!!cache = SqliteCache(timeout=3600)
+#!!transport.cache = cache
 
 url= "http://axis-mk2.home/wsdl/vapix/ActionService.wsdl"
 #url = "http://www.axis.com/vapix/ws/EntryService.wsdl"
@@ -82,6 +88,11 @@ settings = Settings(strict=False, raw_response=False)
 
 client = Client(url, transport=transport, settings=settings)
 
+service = client.create_service(
+    '{http://www.axis.com/vapix/ws/action1}ActionBinding',
+    'http://axis-mk2.home/vapix/services')
+
+
 client.set_ns_prefix('aa', "http://www.axis.com/vapix/ws/action1")
 client.set_ns_prefix('wsnt', "http://docs.oasis-open.org/wsn/b-2")
 client.set_ns_prefix('tns1', "http://www.onvif.org/ver10/topics")
@@ -90,9 +101,37 @@ client.set_ns_prefix('tnsaxis', "http://www.axis.com/2009/event/topics")
 
 # http://axis-mk2.home/wsdl/vapix/ActionService.wsdl?timestamp=1550949556124
 
-service = client.create_service(
-    '{http://www.axis.com/vapix/ws/action1}ActionBinding',
-    'http://axis-mk2.home/vapix/services')
+
+body = """
+        <?xml version="1.0" ?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:aa="http://www.axis.com/vapix/ws/action1"
+    xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2"
+    xmlns:tns1="http://www.onvif.org/ver10/topics"
+    xmlns:tnsaxis="http://www.axis.com/2009/event/topics"
+    xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+<soap:Body>
+   <aa:AddActionRule xmlns="http://www.axis.com/vapix/ws/action1">
+      <NewActionRule>
+         <Name>TTTzz</Name>
+         <Enabled>false</Enabled>
+         <StartEvent>
+             <wsnt:TopicExpression Dialect="http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet">tnsaxis:Storage/Disruption</wsnt:TopicExpression>
+             <wsnt:MessageContent Dialect="http://www.onvif.org/ver10/tev/messageContentFilter/ItemFilter">boolean(//SimpleItem[@Name="disruption" and @Value="1"]) and boolean(//SimpleItem[@Name="disk_id" and @Value="SD_DISK"])</wsnt:MessageContent>
+          </StartEvent>
+         <PrimaryAction>36</PrimaryAction>
+      </NewActionRule>
+      </aa:AddActionRule>
+   </soap:Body>
+</soap:Envelope>
+    """.strip()
+
+response = stub(status_code=200, headers={}, content=content)
+
+operation = service._binding._operations["AddActionRule"]
+result = service._binding.process_reply(client, operation, response)
+
 
 
 
@@ -137,17 +176,8 @@ any_1=xsd.AnyObject(FilterType_type,  filterType_0_0_seq[1])
 any_list_NEW=[any_0,any_1]
 Condition_0_NEW=FilterType_type(any_list_NEW)
 
-zz = xsd.Sequence(any_list_NEW)
-Condition_0_NEW=FilterType_type(zz)
-
-#!!
-Condition_0_NEW=FilterType_type(any_0)
-
 Condition_seq_NEW = [Condition_0_NEW]
 Conditions_NEW = Conditions_type(Condition_seq_NEW)
-
-zz = xsd.Sequence(Condition_seq_NEW)
-Conditions_NEW = Conditions_type(zz)
 
 source_rule_to_clone = ze_rule
 
@@ -159,6 +189,8 @@ newActioRule = NewActionRule_type (Name=source_rule_to_clone['Name']+'2',
 #                                               ActivationTimeout=source_rule_to_clone['ActivationTimeout'],
 #                                               FailoverAction=source_rule_to_clone['FailoverAction']
                                                 )
+
+node = etree.Element("document")
 
 add_result = service.AddActionRule (NewActionRule=newActioRule)
 
@@ -305,3 +337,91 @@ for rule in rules:
 
 x = 1
 
+
+def test_element_any_type():
+    node = etree.fromstring(
+        """
+        <?xml version="1.0"?>
+        <schema xmlns="http://www.w3.org/2001/XMLSchema"
+                xmlns:tns="http://tests.python-zeep.org/"
+                targetNamespace="http://tests.python-zeep.org/"
+                elementFormDefault="qualified">
+          <element name="container">
+            <complexType>
+              <sequence>
+                <element name="something" type="anyType"/>
+              </sequence>
+            </complexType>
+          </element>
+        </schema>
+    """.strip()
+    )
+    schema = xsd.Schema(node)
+
+    container_elm = schema.get_element("{http://tests.python-zeep.org/}container")
+    obj = container_elm(something=datetime.time(18, 29, 59))
+
+    node = etree.Element("document")
+    container_elm.render(node, obj)
+    expected = """
+        <document>
+            <ns0:container xmlns:ns0="http://tests.python-zeep.org/">
+                <ns0:something>18:29:59</ns0:something>
+            </ns0:container>
+        </document>
+    """
+    assert_nodes_equal(expected, node)
+    item = container_elm.parse(list(node)[0], schema)
+    assert item.something == "18:29:59"
+
+
+def test_element_any_type_elements():
+    node = etree.fromstring(
+        """
+        <?xml version="1.0"?>
+        <schema xmlns="http://www.w3.org/2001/XMLSchema"
+                xmlns:tns="http://tests.python-zeep.org/"
+                targetNamespace="http://tests.python-zeep.org/"
+                elementFormDefault="qualified">
+          <element name="container">
+            <complexType>
+              <sequence>
+                <element name="something" type="anyType"/>
+              </sequence>
+            </complexType>
+          </element>
+        </schema>
+    """.strip()
+    )
+    schema = xsd.Schema(node)
+
+    Child = xsd.ComplexType(
+        xsd.Sequence(
+            [
+                xsd.Element("{http://tests.python-zeep.org/}item_1", xsd.String()),
+                xsd.Element("{http://tests.python-zeep.org/}item_2", xsd.String()),
+            ]
+        )
+    )
+    child = Child(item_1="item-1", item_2="item-2")
+
+    container_elm = schema.get_element("{http://tests.python-zeep.org/}container")
+    obj = container_elm(something=child)
+
+    node = etree.Element("document")
+    container_elm.render(node, obj)
+    expected = """
+        <document>
+            <ns0:container xmlns:ns0="http://tests.python-zeep.org/">
+                <ns0:something>
+                    <ns0:item_1>item-1</ns0:item_1>
+                    <ns0:item_2>item-2</ns0:item_2>
+                </ns0:something>
+            </ns0:container>
+        </document>
+    """
+    assert_nodes_equal(expected, node)
+    item = container_elm.parse(list(node)[0], schema)
+    assert len(item.something) == 2
+    assert item.something[0].text == "item-1"
+    assert item.something[1].text == "item-2"
